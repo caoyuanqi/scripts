@@ -1,0 +1,217 @@
+#!/usr/bin/perl
+
+# Background:
+#    1.This perl file is writen to add the time event to calendar in OSX
+#    2.Auto run applescript with `osascript -e`
+# Input: org file to organize the time
+# Output(function): calendar's change when necessary.
+
+use syntax 'junction';
+
+$change = 0;
+
+# get the already sheduled event times from file and read it into file
+
+open (FILE, "<", "/Users/Cao/Dropbox/org/time.txt") or die("Can't open file");
+@times = <FILE>;
+
+close(FILE);
+$change = 0;
+
+while($line = <stdin>)
+{
+    # get the title
+    if ($line =~ /^\* /)
+    {
+        $calendar = $line;
+        $calendar =~ s/\*//g;
+        chop($calendar);
+        $calendar =~ s/ //g;
+        next;
+    }
+    if ($line =~ /\*/)
+    {
+        $title = $line;
+        $title =~ s/\*//g;
+        $title =~ s/\'/\'\\\'\'/g;
+        $title =~ s/\"/\"\\\"\"/g;
+        $title =~ s/TODO *//g;
+        $title =~ s/STARTED *//g;
+        chop($title);
+        next;
+    }
+
+    # get the shedule date
+    if ($line =~ /(SCHEDULED: \<[0-9]{4}-[0-9]{2}-[0-9]{2} [a-zA-Z]{3}\>)/g)
+    {
+        print "This is a all-day event\n";
+        my $date = $1;
+        _create_mac_calendar($date,0);
+        next;
+    }
+    if ($line =~ /(SCHEDULED: \<[0-9]{4}-[0-9]{2}-[0-9]{2} [a-zA-Z]{3} [0-9]{1,2}:[0-9]{2}-[0-9]{1,2}:[0-9]{2}\>)/g)
+    {
+        my $date = $1;
+        _create_mac_calendar($date,1);
+    }
+}
+
+# Change file or not;
+if ($change == 1)
+{
+    _file_writer();
+    $command_to_restart = 'tell application "Calendar" to quit
+
+delay 2 -- Wait for Safari to close
+
+tell application "Calendar" to activate';
+    `osascript -e '$command_to_restart'`;
+}
+
+
+
+
+# Writer time information to the time.txt in org folder
+sub _file_writer
+{
+    print "Need to change the org time file";
+    `rm ~/Dropbox/org/time.txt`;
+    open (OUT,  ">", "/Users/Cao/Dropbox/org/time.txt");
+    print OUT @times;
+    close OUT;
+    #`osascript -e 'tell application  "Calendar" to quit'`
+}
+
+# calenadar creater
+sub _create_mac_calendar
+{
+    print "Checking the calendar for title: $title\n";
+    my $date = $_[0];
+    # if the event is a all-day event
+    if($_[1] == 0)
+    {
+        print "_create_mac_calendar: Get a all-day event\n";
+        ($year,$month,$day)=($date =~ /SCHEDULED: \<([0-9]{4})-([0-9]{2})-([0-9]{2}) [a-zA-Z]{3}\>/g);
+        print "This is a whole day event year: $year, month: $month, date: $day";
+        $begin_date_string =$day.'/'.$month.'/'.$year;
+
+        # The check if this event is already added to the calendar
+        $this_saved = 0;
+        foreach $item (@times)
+        {
+            $test_item = $item;
+            $test_item =~ s/\n//g;
+            print "$item  --    $begin_date_string\n";
+            if ($test_item eq $begin_date_string)
+            {
+                print "$test_item: This event is already been recorded\n";
+                $this_saved = 1;
+                last;
+            }
+        }
+        print "This changed is $this_saved";
+        if ( $this_saved == 0)
+        {
+            push @times, "$begin_date_string\n";
+            $change = 1;
+        }
+        else
+        {
+            return;
+        }
+        $string_command = '
+set dateString to "'.$begin_date_string.'"
+set startDate to date dateString
+set theSummary to "'.$title.'"
+
+tell application "Calendar" to run
+
+tell application "Calendar"
+     tell calendar "'.$calendar.'"
+     make new event at end of events with properties {summary:theSummary, start date:startDate, allday event: true }
+     end tell
+end tell
+';
+        print $string_command;
+        `osascript -e '$string_command'`;
+
+    }
+    # if it is not a all-day element
+    # add this event with time stamp
+    elsif ($_[1] == 1)
+    {
+        print "This is a event with time stamp\n";
+        ($year,$month,$day,$begin_time,$end_time )=($date =~ /SCHEDULED: \<([0-9]{4})-([0-9]{2})-([0-9]{2}) [a-zA-Z]{3} ([0-9]{1,2}:[0-9]{2})-([0-9]{2}:[0-9]{2})\>/g);
+        #print "$year:$month:$day:$begin_time:$end_time\n";
+
+        ($begin_hour,$begin_min) = split(':',$begin_time);
+        ($end_hour,$end_min) = split(':',$end_time);
+        my $begin_time  = _get_right_time($begin_hour, $begin_min);
+        my  $end_time = _get_right_time($end_hour, $end_min);
+        $begin_date_string = $day.'/'.$month.'/'.$year.' '.$begin_time;
+        $end_date_string = $day.'/'.$month.'/'.$year.' '.$end_time;
+        $this_saved = 0;
+        foreach $item (@times)
+        {
+            if ($item =~ $begin_date_string)
+            {
+                $this_saved = 1;
+                last;
+            }
+        }
+        if ( $this_saved == 0)
+        {
+            push @times, "$begin_date_string\n";
+            $change = 1;
+        }
+        else
+        {
+            return;
+        }
+        $string_command = '
+set dateString to "'.$begin_date_string.'"
+set startDate to date dateString
+set endString to "'.$end_date_string.'"
+set endDate to date endString
+set theSummary to "'.$title.'"
+
+tell application "Calendar" to run
+
+tell application "Calendar"
+     tell calendar "'.$calendar.'"
+     name
+     make new event at end of events with properties {summary:theSummary, start date:startDate, end date:endDate }
+     end tell
+end tell
+
+endDate
+
+
+';
+
+    print $string_command;
+    `osascript -e '$string_command'`;
+    }
+}
+
+
+
+
+# change the time into pm or am
+sub _get_right_time
+{
+    my $hour = $_[0];
+    my $min = $_[1];
+      if($hour <= 12)
+      {
+          $pm_or_am = "am";
+          $pm_or_am = "pm"if ($hour == 12);
+    }
+    else
+    {
+        $hour = scalar($hour) - 12;
+        $pm_or_am = "pm";
+    }
+    $time = $hour.':'.$min." $pm_or_am";
+    return $time;
+}

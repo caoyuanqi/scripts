@@ -1,0 +1,30 @@
+#!/usr/bin/perl
+
+use strict;
+
+my $directory = '/Users/Cao/Downloads';
+opendir (DIR, $directory) or die $!;
+
+my @list = [];
+
+while (my $file = readdir(DIR))
+{
+    if ($file =~ ".*\.epub")
+    {
+	push $file, @list;
+        print "Converting $file\n";
+        system("kindlegen", "/Users/Cao/Downloads/$file");
+        system("rm", "/Users/Cao/Downloads/$file");
+    }
+}
+    if (scalar @list == 1)
+{
+    print "There is not file need to be convert\n";
+}
+else
+{
+    print "These files are converted:\n";
+        foreach my $i (@list){
+            print "$i\n";
+    }
+}

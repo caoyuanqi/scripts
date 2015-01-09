@@ -1,0 +1,6 @@
+#!/usr/local/bin/bash
+
+cd ~/Dropbox/personal_site/output/
+git add --all
+git commit -m 'blog commit'
+git push
