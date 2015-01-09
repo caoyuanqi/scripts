@@ -6,6 +6,11 @@
 # Input: org file to organize the time
 # Output(function): calendar's change when necessary.
 
+# Author: Yuanqi Cao <caoyuanqi@gmail.com>
+# website: http://caoyuanqi.github.io
+# version: 0.8
+
+
 use syntax 'junction';
 
 $change = 0;
