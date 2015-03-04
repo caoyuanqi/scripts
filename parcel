@@ -1,0 +1,102 @@
+#!/usr/bin/python
+
+# author: Yuanqi Cao
+# useage: search the changlin parcel information all the information
+
+
+from HTMLParser import HTMLParser
+import urllib
+import re
+import sys
+import os
+import time
+
+os.system("open /Users/Cao/Dropbox/John_Sophie/parcel/orders.txt")
+
+outputFile = open("/Users/Cao/Dropbox/John_Sophie/parcel/result.txt", 'w')
+
+class ParcelParser(HTMLParser):
+    printable = False
+
+    def handle_starttag(self,tag,attrs):
+
+        if tag == 'tr' or tag == 'td' or tag == 'strong':
+            self.printable = True
+        else:
+            self.printable = False
+    def handle_data(self, data):
+        if self.printable and not re.search('^\s*$', data):
+            print data
+            print >> outputFile,data
+
+class Order:
+    def __init__(self, orderNo, name = None):
+        self. orderNo = orderNo
+        self.name = name
+
+
+    def findState(self):
+        #print 'order name is ', self.name, 'order id is', self.orderNo
+        params = urllib.urlencode({'cno': self.orderNo})
+        f = urllib.urlopen("http://www.shlexp.com/track.html", params)
+        html = f.read()
+        html = re.sub('<br>','',html)
+        html = re.sub('<span id=\'HeaderNum\'>','',html)
+
+        parser = ParcelParser()
+        parser.feed(html)
+        parser.close()
+
+class Orders:
+    orders = []
+
+    def add(self, order):
+        self.orders.append(order)
+
+    def checkStates(self):
+        for i in self.orders:
+            print '=' * 60
+            print 'This order is for ----', i.name, ' ----'
+            print >>outputFile, '=' * 60
+            print >>outputFile, 'This order is for ---- ', i.name, ' ----'
+            i.findState()
+
+ords = Orders()
+class OrderFile:
+
+
+    def fileHandler(self):
+        try:
+            f = open ('/Users/Cao/Dropbox/John_Sophie/parcel/orders.txt', 'r')
+            return f
+        except:
+            print 'there should be a file named orders in you folder please check'
+
+    def ordersBuild(self):
+        f = self.fileHandler()
+        for line in f:
+            line = line.rstrip()
+            array = re.split(' ', line)
+            if array[-1] == 'done':
+                continue
+            else:
+                order = Order(array[1], array[0])
+                ords.add(order)
+
+
+
+#  main function
+def main():
+    if len(sys.argv) != 1:
+        for i in sys.argv[1:]:
+            order = Order(i)
+            order.findState()
+    else:
+        file = OrderFile()
+        file.ordersBuild()
+        ords.checkStates()
+    time.sleep(5)
+    #os.system("open /Users/Cao/Dropbox/John_Sophie/parcel/result.txt")
+
+if __name__ == '__main__':
+    main()
